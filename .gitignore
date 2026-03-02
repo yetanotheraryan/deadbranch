@@ -24,3 +24,6 @@ target
 # Added by cargo
 
 /target
+
+# Generated at build time; distributed via release tarballs
+/man/deadbranch.1

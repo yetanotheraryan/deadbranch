@@ -26,11 +26,7 @@
       "path": "pkg/npm/package.json",
       "jsonpath": "$.version"
     },
-    "pkg/homebrew/deadbranch.rb",
-    {
-      "type": "generic",
-      "path": "man/deadbranch.1"
-    }
+    "pkg/homebrew/deadbranch.rb"
   ],
   "packages": {
     ".": {
