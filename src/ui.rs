@@ -52,13 +52,13 @@ pub fn spinner(message: &str) -> ProgressBar {
 /// Finish spinner with success
 pub fn spinner_success(spinner: &ProgressBar, message: &str) {
     spinner.finish_and_clear();
-    println!("{} {}", style("✓").green(), message);
+    println!("{} {}", style("✅").green(), message);
 }
 
 /// Finish spinner with warning
 pub fn spinner_warn(spinner: &ProgressBar, message: &str) {
     spinner.finish_and_clear();
-    println!("{} {}", style("!").yellow(), message);
+    println!("{} {}", style("⚠️").yellow(), message);
 }
 
 /// Display a list of branches in a table
@@ -153,22 +153,22 @@ pub fn confirm_local_deletion(branches: &[Branch]) -> bool {
 
 /// Display success message
 pub fn success(message: &str) {
-    println!("{} {}", style("✓").green().bold(), message);
+    println!("{} {}", style("✅").green().bold(), message);
 }
 
 /// Display warning message
 pub fn warning(message: &str) {
-    println!("{} {}", style("⚠").yellow().bold(), message);
+    println!("{} {}", style("⚠️").yellow().bold(), message);
 }
 
 /// Display error message
 pub fn error(message: &str) {
-    eprintln!("{} {}", style("✗").red().bold(), message);
+    eprintln!("{} {}", style("❌").red().bold(), message);
 }
 
 /// Display info message
 pub fn info(message: &str) {
-    println!("{} {}", style("ℹ").blue().bold(), message);
+    println!("{} {}", style("ℹ️").blue().bold(), message);
 }
 
 /// Print dry-run header
@@ -203,7 +203,7 @@ pub fn confirm_remote_deletion(branches: &[Branch]) -> bool {
     println!(
         "{}",
         style(format!(
-            "⚠  WARNING: You are about to delete remote {}!",
+            "⚠️  WARNING: You are about to delete remote {}!",
             branch_word
         ))
         .yellow()
@@ -433,7 +433,7 @@ pub fn display_restore_success(result: &RestoreResult) {
         // Restored with different name (--as flag)
         println!(
             "{} Restored branch '{}' as '{}' at commit {}{}",
-            style("✓").green().bold(),
+            style("✅").green().bold(),
             style(&result.original_name).cyan(),
             style(&result.restored_name).cyan().bold(),
             style(short_sha).yellow(),
@@ -443,7 +443,7 @@ pub fn display_restore_success(result: &RestoreResult) {
         // Normal restore (same name)
         println!(
             "{} Restored branch '{}' at commit {}{}",
-            style("✓").green().bold(),
+            style("✅").green().bold(),
             style(&result.restored_name).cyan().bold(),
             style(short_sha).yellow(),
             suffix
@@ -595,7 +595,7 @@ fn display_skipped_lines(skipped: &[SkippedLine]) {
 
     println!(
         "{} {} {} in backup file:",
-        style("⚠").yellow().bold(),
+        style("⚠️").yellow().bold(),
         style(format!("{} corrupted", count)).yellow(),
         line_word
     );
@@ -636,7 +636,7 @@ pub fn display_backups_to_clean(
     );
 
     if backups.is_empty() {
-        println!("  {} No old backups to clean\n", style("ℹ").blue());
+        println!("  {} No old backups to clean\n", style("ℹ️").blue());
         return;
     }
 
@@ -681,7 +681,7 @@ pub fn display_backup_clean_success(result: &CleanResult) {
     let file_word = pluralize(result.deleted_count, "backup", "backups");
     println!(
         "{} Deleted {} {} (freed {})",
-        style("✓").green().bold(),
+        style("✅").green().bold(),
         style(result.deleted_count).cyan(),
         file_word,
         style(format_bytes(result.bytes_freed)).cyan()
@@ -700,7 +700,7 @@ pub fn display_backup_clean_dry_run(count: usize, total_size: u64) {
     println!();
     println!(
         "{} Would delete {} {} ({})",
-        style("ℹ").blue(),
+        style("ℹ️").blue(),
         style(count).cyan(),
         file_word,
         style(format_bytes(total_size)).cyan()
@@ -711,7 +711,7 @@ pub fn display_backup_clean_dry_run(count: usize, total_size: u64) {
 pub fn display_no_backups_for_repo(repo_name: &str) {
     println!(
         "{} No backups found for repository '{}'",
-        style("ℹ").blue(),
+        style("ℹ️").blue(),
         repo_name
     );
 }

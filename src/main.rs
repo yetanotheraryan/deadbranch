@@ -307,11 +307,11 @@ fn delete_branches_with_backup(branches: &[branch::Branch], force: bool) -> Resu
     for branch in branches {
         match git::delete_local_branch(&branch.name, force) {
             Ok(()) => {
-                println!("  {} {}", console::style("✓").green(), branch.name);
+                println!("  {} {}", console::style("✅").green(), branch.name);
                 deleted += 1;
             }
             Err(e) => {
-                println!("  {} {} ({})", console::style("✗").red(), branch.name, e);
+                println!("  {} {} ({})", console::style("❌").red(), branch.name, e);
                 failed += 1;
             }
         }
@@ -352,11 +352,11 @@ fn delete_remote_branches_with_backup(branches: &[branch::Branch]) -> Result<()>
     for branch in branches {
         match git::delete_remote_branch(&branch.name) {
             Ok(()) => {
-                println!("  {} {}", console::style("✓").green(), branch.name);
+                println!("  {} {}", console::style("✅").green(), branch.name);
                 deleted += 1;
             }
             Err(e) => {
-                println!("  {} {} ({})", console::style("✗").red(), branch.name, e);
+                println!("  {} {} ({})", console::style("❌").red(), branch.name, e);
                 failed += 1;
             }
         }
