@@ -14,6 +14,7 @@ use crate::backup::{
     SkippedLine,
 };
 use crate::branch::Branch;
+use crate::stats::RepoStats;
 
 /// Generic pluralization helper
 pub fn pluralize<'a>(count: usize, singular: &'a str, plural: &'a str) -> &'a str {
@@ -761,5 +762,103 @@ pub fn display_backup_stats(stats: &BackupStats) {
         pluralize(stats.total_backups(), "backup", "backups"),
         style(format_bytes(stats.total_bytes())).cyan()
     );
+    println!();
+}
+
+/// Display repository branch statistics and age distribution in tables
+pub fn display_repo_stats(stats: &RepoStats) {
+    if stats.total == 0 {
+        info("No branches found.");
+        return;
+    }
+
+    let mut table = Table::new();
+    table.load_preset(UTF8_FULL);
+    table.set_header(vec![
+        Cell::new("Category").add_attribute(Attribute::Bold),
+        Cell::new("Total").add_attribute(Attribute::Bold),
+        Cell::new("Local").add_attribute(Attribute::Bold),
+        Cell::new("Remote").add_attribute(Attribute::Bold),
+    ]);
+
+    table.add_row(vec![
+        Cell::new("All branches"),
+        Cell::new(stats.total.to_string()),
+        Cell::new(stats.local.to_string()),
+        Cell::new(stats.remote.to_string()),
+    ]);
+    table.add_row(vec![
+        Cell::new("Merged"),
+        Cell::new(stats.merged.to_string()).fg(Color::Green),
+        Cell::new(stats.merged_local.to_string()).fg(Color::Green),
+        Cell::new(stats.merged_remote.to_string()).fg(Color::Green),
+    ]);
+    table.add_row(vec![
+        Cell::new("Unmerged"),
+        Cell::new(stats.unmerged.to_string()).fg(Color::Yellow),
+        Cell::new(stats.unmerged_local.to_string()).fg(Color::Yellow),
+        Cell::new(stats.unmerged_remote.to_string()).fg(Color::Yellow),
+    ]);
+    table.add_row(vec![
+        Cell::new(format!("Stale (>{}d)", stats.threshold_days)),
+        Cell::new(stats.stale.to_string()).fg(Color::DarkGrey),
+        Cell::new(stats.stale_local.to_string()).fg(Color::DarkGrey),
+        Cell::new(stats.stale_remote.to_string()).fg(Color::DarkGrey),
+    ]);
+    table.add_row(vec![
+        Cell::new("Safe to delete"),
+        Cell::new(stats.safe_to_delete.to_string()).fg(Color::Cyan),
+        Cell::new(stats.safe_local.to_string()).fg(Color::Cyan),
+        Cell::new(stats.safe_remote.to_string()).fg(Color::Cyan),
+    ]);
+
+    println!("\n{}", style("Repository Statistics:").bold());
+    println!("{table}");
+
+    let mut age_table = Table::new();
+    age_table.load_preset(UTF8_FULL);
+    age_table.set_header(vec![
+        Cell::new("Age Range").add_attribute(Attribute::Bold),
+        Cell::new("Count").add_attribute(Attribute::Bold),
+        Cell::new("Status").add_attribute(Attribute::Bold),
+    ]);
+
+    // A bucket is labeled "stale" if its minimum age >= threshold_days,
+    // meaning every branch in it would be considered stale.
+    let buckets: &[(&str, usize, u32)] = &[
+        ("< 7 days", stats.age_lt7, 0),
+        ("7\u{2013}30 days", stats.age_7_30, 7),
+        ("30\u{2013}90 days", stats.age_30_90, 30),
+        ("> 90 days", stats.age_gt90, 90),
+    ];
+
+    for (label, count, bucket_min) in buckets {
+        let is_stale = *bucket_min >= stats.threshold_days;
+        let status_cell = if is_stale {
+            Cell::new("stale").fg(Color::Yellow)
+        } else {
+            Cell::new("fresh").fg(Color::Green)
+        };
+        age_table.add_row(vec![
+            Cell::new(*label),
+            Cell::new(count.to_string()),
+            status_cell,
+        ]);
+    }
+
+    println!("\n{}", style("Age Distribution:").bold());
+    println!("{age_table}");
+
+    if stats.safe_to_delete > 0 {
+        println!();
+        println!(
+            "{} Run '{}' to remove {} safe-to-delete {}",
+            style("💡"),
+            style("deadbranch clean").cyan(),
+            style(stats.safe_to_delete).cyan(),
+            pluralize_branch(stats.safe_to_delete)
+        );
+    }
+
     println!();
 }

@@ -6,6 +6,7 @@ mod cli;
 mod config;
 mod error;
 mod git;
+mod stats;
 mod ui;
 
 use anyhow::{Context, Result};
@@ -53,6 +54,8 @@ fn main() -> Result<()> {
         Commands::Config { action } => cmd_config(action),
 
         Commands::Backup { action } => cmd_backup(action),
+
+        Commands::Stats { days } => cmd_stats(days),
 
         Commands::Completions { shell } => {
             generate(
@@ -504,6 +507,43 @@ fn cmd_config(action: ConfigAction) -> Result<()> {
             }
         }
     }
+
+    Ok(())
+}
+
+/// Show repository branch statistics
+fn cmd_stats(days: Option<u32>) -> Result<()> {
+    let config = Config::load()?;
+    let min_age = days.unwrap_or(config.general.default_days);
+
+    let default_branch = config
+        .branches
+        .default_branch
+        .clone()
+        .unwrap_or_else(|| git::get_default_branch().unwrap_or_else(|_| "main".to_string()));
+
+    let spinner = ui::spinner("Loading branches...");
+    let all_branches = git::list_branches(&default_branch)?;
+    spinner.finish_and_clear();
+
+    // Apply the same visibility rules as list/clean: respect protected and
+    // exclude_patterns, but no age filter — stats covers all visible branches.
+    let filter = branch::BranchFilter {
+        min_age_days: 0,
+        local_only: false,
+        remote_only: false,
+        merged_only: false,
+        protected_branches: config.branches.protected,
+        exclude_patterns: config.branches.exclude_patterns,
+    };
+
+    let branches: Vec<_> = all_branches
+        .into_iter()
+        .filter(|b| filter.matches(b))
+        .collect();
+
+    let repo_stats = stats::compute_stats(&branches, min_age);
+    ui::display_repo_stats(&repo_stats);
 
     Ok(())
 }

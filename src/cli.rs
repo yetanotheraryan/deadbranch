@@ -76,6 +76,13 @@ pub enum Commands {
         action: BackupAction,
     },
 
+    /// Show repository branch statistics
+    Stats {
+        /// Treat branches older than N days as stale (default: from config or 30)
+        #[arg(short, long)]
+        days: Option<u32>,
+    },
+
     /// Generate shell completion scripts
     Completions {
         /// Shell to generate completions for
