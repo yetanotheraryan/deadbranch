@@ -9,6 +9,16 @@ repository = "https://github.com/armgabrielyan/deadbranch"
 readme = "README.md"
 keywords = ["git", "cli", "branches", "cleanup"]
 categories = ["command-line-utilities", "development-tools"]
+include = [
+    "src/**",
+    "tests/**",
+    "/build.rs",
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/LICENSE",
+    "/README.md",
+    "/CHANGELOG.md",
+]
 
 [dependencies]
 # CLI Framework & Argument Parsing

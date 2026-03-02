@@ -41,7 +41,7 @@
 
 ## Demo
 
-![deadbranch demo](./demo/demo.gif)
+![deadbranch demo](https://raw.githubusercontent.com/armgabrielyan/deadbranch/main/demo/demo.gif)
 
 ## ✨ Features
 
