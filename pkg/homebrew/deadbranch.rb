@@ -16,24 +16,24 @@ class Deadbranch < Formula
   on_macos do
     on_intel do
       url "https://github.com/armgabrielyan/deadbranch/releases/download/v#{version}/deadbranch-#{version}-x86_64-apple-darwin.tar.gz"
-      sha256 "86feb7e0382277a292e40ffeff08d79544bb8f469645df75b69c3dd503b6d864"
+      sha256 "3173c7b8f432ed2d28cbc2530a13199baf8b47a5e65beebdc165dbea1eb66459"
     end
 
     on_arm do
       url "https://github.com/armgabrielyan/deadbranch/releases/download/v#{version}/deadbranch-#{version}-aarch64-apple-darwin.tar.gz"
-      sha256 "06d9242a5a01e0935f2de9fe9801ca3503951d3f8638a543e67af9ccaf8e3e5c"
+      sha256 "dd49ee71df838f0b3e58cde378bd224898bba73e86dfe14c86c1c974dbc6a642"
     end
   end
 
   on_linux do
     on_intel do
       url "https://github.com/armgabrielyan/deadbranch/releases/download/v#{version}/deadbranch-#{version}-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "d6168a1d49f6523caa1438d9b419ae1ad344acb2b91d299d77b8da427ba2ee86"
+      sha256 "413f44edde9ef7d04cf9bcd799ffa0c1fcad61d3d243c405b496881993e3f931"
     end
 
     on_arm do
       url "https://github.com/armgabrielyan/deadbranch/releases/download/v#{version}/deadbranch-#{version}-aarch64-unknown-linux-gnu.tar.gz"
-      sha256 "746529f77b0ceb7a7a011d151dae31565baf4b558e45cbd6cb1702661b418daa"
+      sha256 "f1a03fde5134d0e4b30a9e66bd37183237788ccaea12234993d42d919c522055"
     end
   end
 
