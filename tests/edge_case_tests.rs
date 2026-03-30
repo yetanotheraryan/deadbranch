@@ -1,49 +1,13 @@
 //! Additional integration tests for edge cases and git operations
 
+mod common;
+
 use assert_cmd::Command;
 use predicates::prelude::*;
 use std::fs;
 use std::process::Command as StdCommand;
-use tempfile::TempDir;
 
-/// Helper to create a test git repository with a commit
-fn create_test_repo() -> TempDir {
-    let temp_dir = TempDir::new().unwrap();
-
-    // Initialize git repo with explicit main branch
-    StdCommand::new("git")
-        .args(["init", "-b", "main"])
-        .current_dir(&temp_dir)
-        .output()
-        .unwrap();
-
-    // Set git config (required for commits)
-    StdCommand::new("git")
-        .args(["config", "user.email", "test@example.com"])
-        .current_dir(&temp_dir)
-        .output()
-        .unwrap();
-    StdCommand::new("git")
-        .args(["config", "user.name", "Test User"])
-        .current_dir(&temp_dir)
-        .output()
-        .unwrap();
-
-    // Create initial commit on main branch
-    fs::write(temp_dir.path().join("README.md"), "# Test repo").unwrap();
-    StdCommand::new("git")
-        .args(["add", "."])
-        .current_dir(&temp_dir)
-        .output()
-        .unwrap();
-    StdCommand::new("git")
-        .args(["commit", "-m", "Initial commit"])
-        .current_dir(&temp_dir)
-        .output()
-        .unwrap();
-
-    temp_dir
-}
+use common::create_test_repo;
 
 #[test]
 #[allow(deprecated)]
@@ -328,4 +292,140 @@ fn test_list_shows_merged_status() {
         .assert()
         .success()
         .stdout(predicate::str::contains("merged-branch"));
+}
+
+#[test]
+#[allow(deprecated)]
+fn test_squash_merged_branch_detected_as_merged() {
+    let repo = create_test_repo();
+    common::create_branch(repo.path(), "squash-feature");
+    common::make_branch_old(repo.path(), "squash-feature", 45);
+
+    StdCommand::new("git")
+        .args(["merge", "--squash", "squash-feature"])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+    StdCommand::new("git")
+        .args(["commit", "-m", "Squash merge squash-feature"])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+
+    Command::cargo_bin("deadbranch")
+        .unwrap()
+        .args(["list", "--merged"])
+        .current_dir(&repo)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("squash-feature"));
+}
+
+#[test]
+#[allow(deprecated)]
+fn test_rebase_merged_branch_detected_as_merged() {
+    let repo = create_test_repo();
+    common::create_branch(repo.path(), "rebase-feature");
+    common::make_branch_old(repo.path(), "rebase-feature", 45);
+
+    // Cherry-pick onto main (simulates rebase-merge)
+    StdCommand::new("git")
+        .args(["cherry-pick", "rebase-feature"])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+
+    Command::cargo_bin("deadbranch")
+        .unwrap()
+        .args(["list", "--merged"])
+        .current_dir(&repo)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("rebase-feature"));
+}
+
+#[test]
+#[allow(deprecated)]
+fn test_truly_unmerged_branch_not_detected_as_merged() {
+    let repo = create_test_repo();
+    common::create_branch(repo.path(), "unmerged-feature");
+    common::make_branch_old(repo.path(), "unmerged-feature", 45);
+
+    Command::cargo_bin("deadbranch")
+        .unwrap()
+        .args(["list", "--merged"])
+        .current_dir(&repo)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("unmerged-feature").not());
+}
+
+#[test]
+#[allow(deprecated)]
+fn test_clean_deletes_squash_merged_branch() {
+    let repo = create_test_repo();
+    common::create_branch(repo.path(), "squash-clean-test");
+    common::make_branch_old(repo.path(), "squash-clean-test", 45);
+
+    StdCommand::new("git")
+        .args(["merge", "--squash", "squash-clean-test"])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+    StdCommand::new("git")
+        .args(["commit", "-m", "Squash merge squash-clean-test"])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+
+    Command::cargo_bin("deadbranch")
+        .unwrap()
+        .args(["clean", "-y"])
+        .current_dir(&repo)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("squash-clean-test"));
+
+    let out = StdCommand::new("git")
+        .args(["branch", "--list", "squash-clean-test"])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+    assert!(
+        !String::from_utf8_lossy(&out.stdout).contains("squash-clean-test"),
+        "squash-merged branch should have been deleted"
+    );
+}
+
+#[test]
+#[allow(deprecated)]
+fn test_clean_deletes_rebase_merged_branch() {
+    let repo = create_test_repo();
+    common::create_branch(repo.path(), "rebase-clean-test");
+    common::make_branch_old(repo.path(), "rebase-clean-test", 45);
+
+    // Cherry-pick onto main (simulates rebase-merge)
+    StdCommand::new("git")
+        .args(["cherry-pick", "rebase-clean-test"])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+
+    Command::cargo_bin("deadbranch")
+        .unwrap()
+        .args(["clean", "-y"])
+        .current_dir(&repo)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("rebase-clean-test"));
+
+    let out = StdCommand::new("git")
+        .args(["branch", "--list", "rebase-clean-test"])
+        .current_dir(&repo)
+        .output()
+        .unwrap();
+    assert!(
+        !String::from_utf8_lossy(&out.stdout).contains("rebase-clean-test"),
+        "rebase-merged branch should have been deleted"
+    );
 }

@@ -80,6 +80,41 @@ fn main() -> Result<()> {
     }
 }
 
+/// Run the two-pass branch loading pipeline:
+///   1. list all branches (first-pass merge detection)
+///   2. pre-filter with `matches_pre_merge` (excludes `merged_only` so tree-check runs on all candidates)
+///   3. squash/rebase merge detection via `git merge-tree` (second pass)
+///   4. retain only merged branches if `filter.merged_only` is set
+///
+/// Any warnings from the tree-check pass are printed via [`ui::warning`].
+fn load_filtered_branches(
+    filter: &BranchFilter,
+    default_branch: &str,
+) -> Result<Vec<branch::Branch>> {
+    let all_branches = git::list_branches(default_branch)?;
+    let mut branches: Vec<_> = all_branches
+        .into_iter()
+        .filter(|b| filter.matches_pre_merge(b))
+        .collect();
+
+    let progress = ui::progress_bar("Checking branches...");
+    progress.set_length(branches.len() as u64);
+    let warnings = git::detect_squash_merges(&mut branches, default_branch, |done| {
+        progress.set_position(done as u64);
+    });
+    progress.finish_and_clear();
+
+    for w in warnings {
+        ui::warning(&w);
+    }
+
+    if filter.merged_only {
+        branches.retain(|b| b.is_merged);
+    }
+
+    Ok(branches)
+}
+
 /// List stale branches
 fn cmd_list(
     days: Option<u32>,
@@ -104,12 +139,6 @@ fn cmd_list(
         default_branch
     ));
 
-    // List all branches
-    let spinner = ui::spinner("Loading branches...");
-    let all_branches = git::list_branches(&default_branch)?;
-    spinner.finish_and_clear();
-
-    // Filter branches
     let filter = BranchFilter {
         min_age_days: min_age,
         local_only,
@@ -119,21 +148,11 @@ fn cmd_list(
         exclude_patterns: config.branches.exclude_patterns,
     };
 
-    let mut branches: Vec<_> = all_branches
-        .into_iter()
-        .filter(|b| filter.matches(b))
-        .collect();
-
-    // Sort: unmerged first, then by age (oldest first)
+    let mut branches = load_filtered_branches(&filter, &default_branch)?;
     branch::sort_branches(&mut branches);
 
-    // Separate local and remote for grouped display
-    let mut local: Vec<_> = branches.iter().filter(|b| !b.is_remote).cloned().collect();
-    let mut remote: Vec<_> = branches.iter().filter(|b| b.is_remote).cloned().collect();
-
-    // Sort each group separately
-    branch::sort_branches(&mut local);
-    branch::sort_branches(&mut remote);
+    let local: Vec<_> = branches.iter().filter(|b| !b.is_remote).cloned().collect();
+    let remote: Vec<_> = branches.iter().filter(|b| b.is_remote).cloned().collect();
 
     // Display in table format
     if !local.is_empty() {
@@ -173,11 +192,6 @@ fn cmd_clean(
         .clone()
         .unwrap_or_else(|| git::get_default_branch().unwrap_or_else(|_| "main".to_string()));
 
-    // List all branches
-    let spinner = ui::spinner("Loading branches...");
-    let all_branches = git::list_branches(&default_branch)?;
-    spinner.finish_and_clear();
-
     if interactive {
         // For TUI, apply only age + protection + exclusion filters.
         // merged/local/remote become initial toggle state in the TUI.
@@ -190,10 +204,7 @@ fn cmd_clean(
             exclude_patterns: config.branches.exclude_patterns.clone(),
         };
 
-        let tui_branches: Vec<_> = all_branches
-            .into_iter()
-            .filter(|b| tui_filter.matches(b))
-            .collect();
+        let tui_branches = load_filtered_branches(&tui_filter, &default_branch)?;
 
         if tui_branches.is_empty() {
             ui::info("No branches to show in interactive mode.");
@@ -227,13 +238,7 @@ fn cmd_clean(
         exclude_patterns: config.branches.exclude_patterns,
     };
 
-    // Filter branches
-    let mut branches: Vec<_> = all_branches
-        .into_iter()
-        .filter(|b| filter.matches(b))
-        .collect();
-
-    // Sort: unmerged first, then by age (oldest first)
+    let mut branches = load_filtered_branches(&filter, &default_branch)?;
     branch::sort_branches(&mut branches);
 
     if branches.is_empty() {
@@ -241,13 +246,8 @@ fn cmd_clean(
         return Ok(());
     }
 
-    // Separate local and remote
-    let mut local_branches: Vec<_> = branches.iter().filter(|b| !b.is_remote).cloned().collect();
-    let mut remote_branches: Vec<_> = branches.iter().filter(|b| b.is_remote).cloned().collect();
-
-    // Sort each group separately
-    branch::sort_branches(&mut local_branches);
-    branch::sort_branches(&mut remote_branches);
+    let local_branches: Vec<_> = branches.iter().filter(|b| !b.is_remote).cloned().collect();
+    let remote_branches: Vec<_> = branches.iter().filter(|b| b.is_remote).cloned().collect();
 
     if dry_run {
         // For dry-run, show all tables upfront
@@ -346,7 +346,7 @@ pub(crate) fn delete_branches_with_backup(branches: &[branch::Branch], force: bo
     let mut failed = 0;
 
     for branch in branches {
-        match git::delete_local_branch(&branch.name, force) {
+        match git::delete_local_branch(&branch.name, force || branch.merged_by_tree) {
             Ok(()) => {
                 println!("  {} {}", console::style("✅").green(), branch.name);
                 deleted += 1;
@@ -570,10 +570,6 @@ fn cmd_stats(days: Option<u32>) -> Result<()> {
         default_branch
     ));
 
-    let spinner = ui::spinner("Loading branches...");
-    let all_branches = git::list_branches(&default_branch)?;
-    spinner.finish_and_clear();
-
     // Apply the same visibility rules as list/clean: respect protected and
     // exclude_patterns, but no age filter — stats covers all visible branches.
     let filter = BranchFilter {
@@ -585,10 +581,7 @@ fn cmd_stats(days: Option<u32>) -> Result<()> {
         exclude_patterns: config.branches.exclude_patterns,
     };
 
-    let branches: Vec<_> = all_branches
-        .into_iter()
-        .filter(|b| filter.matches(b))
-        .collect();
+    let branches = load_filtered_branches(&filter, &default_branch)?;
 
     let repo_stats = stats::compute_stats(&branches, min_age);
     ui::display_repo_stats(&repo_stats);
